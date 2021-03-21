@@ -1,0 +1,145 @@
+---
+title: "Covid in India"
+author: "Mirza Wasim Ahmed"
+date: "21/03/2021"
+output: html_document
+---
+
+
+
+```{r}
+#######################
+#### Load Packages ####
+#######################
+
+my_packages <- c("lubridate", "ggplot2", "dplyr", "prophet", "covid19.analytics", "pheatmap")
+
+lapply(my_packages, require, character.only= T)
+
+```
+
+
+```{r}
+#############################
+#### Scrap Covid19 data #####
+#### and data preparation####
+#############################
+
+world_covid <- covid19.data(case= "ts-confirmed")
+
+View(world_covid)
+
+live.map(world_covid)
+```
+
+
+
+
+```{r}
+#########################
+#### Data preparation####
+#########################
+
+ind_covid <- world_covid %>% filter(Country.Region=='India')
+View(ind_covid)
+
+# Transpose
+ind_covid <- data.frame(t(ind_covid))
+
+str(ind_covid)
+ind_covid <- cbind(rownames(ind_covid), data.frame(ind_covid, row.names = NULL))
+View(ind_covid)
+
+# Rename the columns
+colnames(ind_covid)<- c('Date', 'Number_of_cases') 
+
+# Remove unwanted rows
+ind_covid <- slice(ind_covid, -c(1:4))
+
+str(ind_covid)
+
+
+ind_covid$Date <- ymd(ind_covid$Date)
+
+ind_covid$Number_of_cases <- as.numeric(ind_covid$Number_of_cases)
+```
+
+
+
+
+```{r}
+################################################
+#### Visualization Covid19 Spread in India #####
+################################################
+attach(ind_covid)
+g<- ggplot(ind_covid, aes(x=Date,y=Number_of_cases),
+       main= "Cumulative confirmed cases") +
+       
+       geom_line(color = "#09557f",alpha = 0.6,size = 1.0)
+      g + labs(y = "Cumulative confirmed cases")
+      
+```
+
+
+
+```{r}
+################################################
+#### Prediction of Covid19 Spread Over next 2months in India #####
+################################################
+
+attach(ind_covid)
+
+ds <- Date
+y <- Number_of_cases
+mydf <- data.frame(ds,y)
+
+d<- prophet(mydf)
+
+pred <- make_future_dataframe(d, periods = 60)
+View(tail(pred))
+
+
+forecast <- predict(d,pred)
+
+dyplot.prophet(d,forecast,xlab= '', ylab= 'Number of cases',
+               main= 'Covid19 prediction in India')
+```
+
+
+
+
+```{r}
+prophet_plot_components(d,forecast)
+
+```
+
+
+```{r}
+#######################
+#### Model Accuracy####
+#######################
+
+
+projected <- forecast$yhat[1:424]
+
+real_value <- d$history$y
+
+plot(projected, real_value, xlab = 'Predicted Value', ylab = 'True Value',
+     main= 'True Values vs Predicted Values')
+
+
+abline(lm(projected~real_value), lwd=2)
+```
+
+Comparison of India’s situation with other countries
+
+```{r}
+####################
+#### Comparison ####
+####################
+
+#compute changes and growth rates per location for 'India'
+growth.rate(world_covid,geo.loc=c("India","US","Brazil"))
+
+```
+
